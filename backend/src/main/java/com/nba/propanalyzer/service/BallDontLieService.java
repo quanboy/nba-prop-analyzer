@@ -22,14 +22,18 @@ public class BallDontLieService {
     public PropAnalysisResponse analyze(String playerName, String stat, double line, int lookback) {
         try {
             // 1. Call Python service for game log
-            RestClient restClient = RestClient.create();
+            RestClient restClient = RestClient.builder()
+                    .baseUrl("http://localhost:5000")
+                    .build();
             String statsRaw = restClient.get()
-                    .uri("http://localhost:5000/gamelog?player={name}&lookback={lookback}", playerName, lookback)
+                    .uri("/gamelog?player={name}&lookback={lookback}",
+                            playerName, lookback)
                     .retrieve()
                     .body(String.class);
 
             System.out.println("DEBUG stats response: " + statsRaw);
-
+            // use ObjectMapper to parse the JSON response into a JsonNode tree
+            // then extract the "games" array node from the root
             JsonNode root = objectMapper.readTree(statsRaw);
             JsonNode gamesNode = root.path("games");
 
@@ -38,13 +42,14 @@ public class BallDontLieService {
             for (JsonNode g : gamesNode) {
                 String date = g.path("GAME_DATE").asText();
                 String matchup = g.path("MATCHUP").asText();
+                String winlose = g.path("WL").asText();
                 double value = extractStat(g, stat);
 
                 GameLog log = new GameLog();
                 log.setDate(date);
                 log.setOpponent(matchup);
+                log.setWinlose(winlose);
                 log.setValue(value);
-                log.setLabel(date + " " + matchup);
                 logs.add(log); // add to the list
             }
             // THEN compute aggregates after the loop finishes
@@ -54,16 +59,23 @@ public class BallDontLieService {
             int overCount = (int) logs.stream().filter(g -> g.getValue() > line).count();
 
             // 4. Get player name from first game
-            String fullName = playerName;
+            String fullName = root.path("full_name").asText(playerName);
 
             PropAnalysisResponse res = new PropAnalysisResponse();
             res.setPlayerName(fullName);
-            res.setTeam("");
+            res.setPosition(root.path("position").asText(""));
+            res.setJersey(root.path("jersey_number").asText(""));
+            res.setPhotoUrl(root.path("headshot_url").asText(""));
+            res.setTeamName(root.path("team_name").asText(""));
+            res.setTeam(root.path("team_abbreviation").asText(""));
             res.setGames(logs);
             res.setLastNAvg(Math.round(lastNAvg * 10.0) / 10.0);
             res.setSeasonAvg(Math.round(lastNAvg * 10.0) / 10.0);
             res.setOverCount(overCount);
             res.setUnderCount(logs.size() - overCount);
+            res.setInputLine(line);
+            res.setLookback(lookback);
+            System.out.println("DEBUG finished response: " + res);
             return res;
 
         } catch (Exception e) {
@@ -80,7 +92,7 @@ public class BallDontLieService {
             case "steals" -> g.path("STL").asDouble();
             case "blocks" -> g.path("BLK").asDouble();
             case "pra" -> g.path("PTS").asDouble() + g.path("REB").asDouble() + g.path("AST").asDouble();
-            case "pr" -> g.path("pts").asDouble() + g.path("REB").asDouble();
+            case "pr" -> g.path("PTS").asDouble() + g.path("REB").asDouble();
             case "pa" -> g.path("PTS").asDouble() + g.path("AST").asDouble();
             default -> 0;
         };

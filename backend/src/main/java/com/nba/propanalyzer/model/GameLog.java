@@ -7,5 +7,5 @@ public class GameLog {
     private String date;
     private String opponent;
     private double value;
-    private String label;
+    private String winlose;
 }
