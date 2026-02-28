@@ -25,6 +25,11 @@ public class BallDontLieService {
             RestClient restClient = RestClient.builder()
                     .baseUrl("http://localhost:5000")
                     .build();
+
+            String pythonURl = System.getenv("PYTHON_SERVICE_URL") != null
+                    ? System.getenv("PYTHON_SERVICE_URL")
+                    : "http://localhost:5000";
+
             String statsRaw = restClient.get()
                     .uri("/gamelog?player={name}&lookback={lookback}",
                             playerName, lookback)
