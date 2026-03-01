@@ -22,13 +22,13 @@ public class BallDontLieService {
     public PropAnalysisResponse analyze(String playerName, String stat, double line, int lookback) {
         try {
             // 1. Call Python service for game log
-            RestClient restClient = RestClient.builder()
-                    .baseUrl("http://localhost:5000")
-                    .build();
-
             String pythonURl = System.getenv("PYTHON_SERVICE_URL") != null
                     ? System.getenv("PYTHON_SERVICE_URL")
                     : "http://localhost:5000";
+
+            RestClient restClient = RestClient.builder()
+                    .baseUrl(pythonURl)
+                    .build();
 
             String statsRaw = restClient.get()
                     .uri("/gamelog?player={name}&lookback={lookback}",
